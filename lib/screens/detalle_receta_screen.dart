@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:recetasapp/data/receta_db.dart';
 import 'package:recetasapp/models/receta.dart';
+import 'package:recetasapp/models/resena.dart';
 
 class DetalleRecetaScreen extends StatefulWidget {
   final Receta receta;
@@ -11,6 +13,47 @@ class DetalleRecetaScreen extends StatefulWidget {
 }
 
 class _DetalleRecetaScreenState extends State<DetalleRecetaScreen> {
+  final _controlador = TextEditingController();
+  List<Resena> _resenas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarResenas();
+  }
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  // trae de la bd las reseñas de ESTA receta
+  Future<void> _cargarResenas() async {
+    final lista = await RecetaDb.instancia.obtenerPorReceta(widget.receta.id);
+    if (!mounted) return;
+    setState(() => _resenas = lista);
+  }
+
+  Future<void> _agregarResena() async {
+    final texto = _controlador.text.trim();
+    if (texto.isEmpty) return;
+    await RecetaDb.instancia.insertar(
+      Resena(
+        recetaId: widget.receta.id,
+        texto: texto,
+        fecha: DateTime.now().toString().substring(0, 16),
+      ),
+    );
+    _controlador.clear();
+    _cargarResenas();
+  }
+
+  Future<void> _eliminarResena(int id) async {
+    await RecetaDb.instancia.eliminar(id);
+    _cargarResenas();
+  }
+
   @override
   Widget build(BuildContext context) {
     final receta = widget.receta;
@@ -78,6 +121,38 @@ class _DetalleRecetaScreenState extends State<DetalleRecetaScreen> {
                   const SizedBox(width: 10),
                   Expanded(child: Text(entrada.value))
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "Reseñas (${_resenas.length}): ",
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _controlador,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Escribe una reseña',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: _agregarResena,
+            child: const Text('Agregar reseña'),
+          ),
+          const SizedBox(height: 8),
+          ..._resenas.map(
+            (r) => Card(
+              child: ListTile(
+                title: Text(r.texto),
+                subtitle: Text(r.fecha),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () => _eliminarResena(r.id!),
+                ),
               ),
             ),
           ),
